@@ -70,19 +70,22 @@ export default function Home() {
   const handleSearch = async () => {
     setLoading(true);
     try {
+      // Pass real-time timestamp for current ERP rate period
+      const departureTime = new Date().toISOString();
+
       const res = await fetch('/api/route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           origin: { latitude: parseFloat(originCoords.lat), longitude: parseFloat(originCoords.lng) },
-          destination: { latitude: parseFloat(destCoords.lat), longitude: parseFloat(destCoords.lng) }
+          destination: { latitude: parseFloat(destCoords.lat), longitude: parseFloat(destCoords.lng) },
+          departureTime
         })
       });
 
       const data = await res.json();
       console.log('API Full Response:', data);
 
-      // Extract all candidate routes and winner
       let allRoutes: any[] = [];
       let topWinner: any = null;
 
@@ -96,10 +99,8 @@ export default function Home() {
         allRoutes = data.result;
       }
 
-      // Identify winner if available
       topWinner = data.winner || data.optimal || allRoutes[0] || null;
 
-      // If winner wasn't in allRoutes, prepend it
       if (topWinner && !allRoutes.includes(topWinner)) {
         allRoutes = [topWinner, ...allRoutes];
       }
@@ -117,7 +118,21 @@ export default function Home() {
 
   const launchGoogleMaps = (route: any) => {
     const dest = route?.destinationCoords || { latitude: destCoords.lat, longitude: destCoords.lng };
-    window.location.href = `https://www.google.com/maps/dir/?api=1&origin=${originCoords.lat},${originCoords.lng}&destination=${dest.latitude},${dest.longitude}`;
+    const orig = route?.originCoords || { latitude: originCoords.lat, longitude: originCoords.lng };
+
+    let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${orig.latitude},${orig.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=driving`;
+
+    // Ensure selected route path is strictly enforced using waypoints or path coordinates if present
+    if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
+      const waypointsString = route.waypoints
+        .map((wp: { latitude: number; longitude: number }) => `${wp.latitude},${wp.longitude}`)
+        .join('|');
+      mapsUrl += `&waypoints=${encodeURIComponent(waypointsString)}`;
+    } else if (route?.via) {
+      mapsUrl += `&via=${encodeURIComponent(route.via)}`;
+    }
+
+    window.open(mapsUrl, '_blank');
   };
 
   if (loadError) return <div style={{ color: 'red', padding: '20px' }}>Error loading Google Maps API.</div>;
@@ -201,12 +216,12 @@ export default function Home() {
           </h2>
           
           {routes.map((route, idx) => {
-            const isWinner = route === winnerRoute || (idx === 0 && winnerRoute === null);
-            const isSelected = route === selectedRoute;
+            const isWinner = (winnerRoute && (route.id ? route.id === winnerRoute.id : route === winnerRoute)) || (idx === 0 && winnerRoute === null);
+            const isSelected = selectedRoute && (route.id ? route.id === selectedRoute.id : route === selectedRoute);
 
             return (
               <div 
-                key={idx}
+                key={route.id || idx}
                 onClick={() => setSelectedRoute(route)}
                 style={{
                   padding: '16px',
@@ -253,6 +268,7 @@ export default function Home() {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
+                    setSelectedRoute(route);
                     launchGoogleMaps(route);
                   }}
                   style={{
