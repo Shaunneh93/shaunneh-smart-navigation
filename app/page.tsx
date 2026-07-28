@@ -2,10 +2,19 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLoadScript, Autocomplete } from '@react-google-maps/api';
 
 const LIBRARIES: ("places")[] = ["places"];
+
+export interface LtaErpRateItem {
+  VehicleType: string;
+  DayType: string;
+  StartTime: string;
+  EndTime: string;
+  ZoneID: string;
+  ChargeAmount: number;
+}
 
 export default function Home() {
   const { isLoaded, loadError } = useLoadScript({
@@ -13,6 +22,7 @@ export default function Home() {
     libraries: LIBRARIES,
   });
 
+  // Google Maps State
   const [originText, setOriginText] = useState('268 Toa Payoh E, Singapore');
   const [originCoords, setOriginCoords] = useState<{ lat: string; lng: string }>({ lat: '1.3343', lng: '103.8568' });
   const originAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -21,10 +31,80 @@ export default function Home() {
   const [destCoords, setDestCoords] = useState<{ lat: string; lng: string }>({ lat: '1.2797', lng: '103.8458' });
   const destAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
+  // Route State
   const [routes, setRoutes] = useState<any[]>([]);
-  const [winnerRoute, setWinnerRoute] = useState<any>(null);
-  const [selectedRoute, setSelectedRoute] = useState<any>(null);
+  const [winnerRouteId, setWinnerRouteId] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Live LTA ERP State
+  const [erpRates, setErpRates] = useState<LtaErpRateItem[]>([]);
+  const [currentTime, setCurrentTime] = useState<string>('');
+
+  // Fetch live ERP rate database from /api/erp once on mount
+  useEffect(() => {
+    async function fetchLtaRates() {
+      try {
+        const res = await fetch('/api/erp');
+        if (res.ok) {
+          const data = await res.json();
+          setErpRates(data.value || data.ERP || []);
+        }
+      } catch (err) {
+        console.error('Failed to load live LTA rates:', err);
+      }
+    }
+    fetchLtaRates();
+  }, []);
+
+  // Sync Singapore Time for live ERP window checks
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(
+        now.toLocaleTimeString('en-GB', {
+          timeZone: 'Asia/Singapore',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        })
+      );
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Compute live ERP fees per route based on current SG time & route ZoneIDs
+  const liveErpMap = useMemo(() => {
+    if (!currentTime || erpRates.length === 0 || routes.length === 0) return {};
+
+    const resultMap: Record<string, number> = {};
+
+    routes.forEach((route, idx) => {
+      const routeKey = route.id || `route-${idx}`;
+      const zoneIds: string[] = route.zoneIds || route.erpZones || [];
+
+      let totalFee = 0;
+      zoneIds.forEach((zoneId) => {
+        const activeRate = erpRates.find((rate) => {
+          if (rate.ZoneID !== zoneId) return false;
+          const start = rate.StartTime.substring(0, 5);
+          const end = rate.EndTime.substring(0, 5);
+          return currentTime >= start && currentTime < end;
+        });
+
+        if (activeRate) {
+          totalFee += Number(activeRate.ChargeAmount) || 0;
+        }
+      });
+
+      resultMap[routeKey] = totalFee;
+    });
+
+    return resultMap;
+  }, [currentTime, erpRates, routes]);
 
   const onOriginPlaceChanged = () => {
     if (originAutocompleteRef.current) {
@@ -70,7 +150,6 @@ export default function Home() {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      // Pass real-time timestamp for current ERP rate period
       const departureTime = new Date().toISOString();
 
       const res = await fetch('/api/route', {
@@ -84,7 +163,6 @@ export default function Home() {
       });
 
       const data = await res.json();
-      console.log('API Full Response:', data);
 
       let allRoutes: any[] = [];
       let topWinner: any = null;
@@ -101,13 +179,21 @@ export default function Home() {
 
       topWinner = data.winner || data.optimal || allRoutes[0] || null;
 
-      if (topWinner && !allRoutes.includes(topWinner)) {
-        allRoutes = [topWinner, ...allRoutes];
+      // Assign primitive IDs to routes if missing
+      allRoutes = allRoutes.map((r, i) => ({
+        ...r,
+        id: r.id || `route-${i}`,
+      }));
+
+      if (topWinner && !topWinner.id) {
+        topWinner.id = 'route-winner-0';
       }
 
+      const winnerId = topWinner?.id || allRoutes[0]?.id || null;
+
       setRoutes(allRoutes);
-      setWinnerRoute(topWinner);
-      setSelectedRoute(topWinner || allRoutes[0] || null);
+      setWinnerRouteId(winnerId);
+      setSelectedRouteId(winnerId);
     } catch (err) {
       console.error('Fetch error:', err);
       alert('Failed to calculate routes.');
@@ -122,7 +208,6 @@ export default function Home() {
 
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${orig.latitude},${orig.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=driving`;
 
-    // Ensure selected route path is strictly enforced using waypoints or path coordinates if present
     if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
       const waypointsString = route.waypoints
         .map((wp: { latitude: number; longitude: number }) => `${wp.latitude},${wp.longitude}`)
@@ -211,18 +296,32 @@ export default function Home() {
       {/* ROUTE RESULTS LIST */}
       {routes.length > 0 && (
         <div style={{ marginTop: '24px' }}>
-          <h2 style={{ fontSize: '18px', marginBottom: '12px', color: '#e0e0e0' }}>
-            Considered Routes ({routes.length})
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '18px', margin: 0, color: '#e0e0e0' }}>
+              Considered Routes ({routes.length})
+            </h2>
+            {currentTime && (
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                SG Time: {currentTime}
+              </span>
+            )}
+          </div>
           
           {routes.map((route, idx) => {
-            const isWinner = (winnerRoute && (route.id ? route.id === winnerRoute.id : route === winnerRoute)) || (idx === 0 && winnerRoute === null);
-            const isSelected = selectedRoute && (route.id ? route.id === selectedRoute.id : route === selectedRoute);
+            const routeKey = route.id || `route-${idx}`;
+            const isWinner = winnerRouteId ? routeKey === winnerRouteId : idx === 0;
+            const isSelected = selectedRouteId === routeKey;
+
+            // Live ERP figure (or fallback to backend calculation)
+            const liveErpCost = liveErpMap[routeKey];
+            const displayErp = liveErpCost !== undefined 
+              ? liveErpCost 
+              : route.erpTotalCost ?? route.erpFee ?? 0;
 
             return (
               <div 
-                key={route.id || idx}
-                onClick={() => setSelectedRoute(route)}
+                key={routeKey}
+                onClick={() => setSelectedRouteId(routeKey)}
                 style={{
                   padding: '16px',
                   marginBottom: '16px',
@@ -234,7 +333,8 @@ export default function Home() {
                       ? '2px solid #38bdf8' 
                       : '1px solid #334155',
                   cursor: 'pointer',
-                  position: 'relative'
+                  position: 'relative',
+                  transition: 'border 0.15s ease-in-out'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -256,7 +356,15 @@ export default function Home() {
                 <div style={{ color: '#f1f5f9', fontSize: '14px', lineHeight: '1.8' }}>
                   <div>⏱️ <strong>Time:</strong> {route.durationMin !== undefined ? Number(route.durationMin).toFixed(0) : route.duration || 'N/A'} mins</div>
                   <div>🛣️ <strong>Distance:</strong> {route.distanceKm !== undefined ? Number(route.distanceKm).toFixed(1) : route.distance || 'N/A'} km</div>
-                  <div>💰 <strong>ERP Fee:</strong> ${route.erpTotalCost !== undefined ? Number(route.erpTotalCost).toFixed(2) : route.erpFee || '0.00'}</div>
+                  
+                  {/* LIVE LTA ERP DISPLAY */}
+                  <div>
+                    💰 <strong>ERP Fee:</strong>{' '}
+                    <span style={{ color: displayErp > 0 ? '#fbbf24' : '#34d399', fontWeight: 'bold' }}>
+                      ${Number(displayErp).toFixed(2)}
+                    </span>
+                  </div>
+
                   {route.intersectionScore !== undefined && (
                     <div>🚦 <strong>Traffic Light Score:</strong> {route.intersectionScore}</div>
                   )}
@@ -268,7 +376,7 @@ export default function Home() {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    setSelectedRoute(route);
+                    setSelectedRouteId(routeKey);
                     launchGoogleMaps(route);
                   }}
                   style={{
