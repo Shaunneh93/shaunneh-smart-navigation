@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 'use client';
 import { useState, useRef } from 'react';
 import { useLoadScript, Autocomplete } from '@react-google-maps/api';
