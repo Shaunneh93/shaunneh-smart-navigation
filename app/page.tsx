@@ -4,6 +4,65 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLoadScript, Autocomplete } from '@react-google-maps/api';
+import { auth, signIn, signOut } from '@/auth';
+
+export default async function Home() {
+  const session = await auth();
+
+  // 🔴 IF NOT LOGGED IN OR NOT ALLOWED:
+  if (!session?.user) {
+    return (
+      <main style={{ padding: '60px 20px', textAlign: 'center', color: '#fff', fontFamily: 'sans-serif' }}>
+        <h1 style={{ fontSize: '24px', marginBottom: '16px' }}>NEHvigation Access</h1>
+        <p style={{ color: '#94a3b8', marginBottom: '24px' }}>This private preview is restricted to authorized users.</p>
+        
+        <form
+          action={async () => {
+            'use server';
+            await signIn('google');
+          }}
+        >
+          <button
+            type="submit"
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#4285F4',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Sign in with Google
+          </button>
+        </form>
+      </main>
+    );
+  }
+
+  // 🟢 IF LOGGED IN: Render your app here...
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', backgroundColor: '#0f172a' }}>
+        <span>Welcome, {session.user.name}</span>
+        <form
+          action={async () => {
+            'use server';
+            await signOut();
+          }}
+        >
+          <button type="submit" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+            Sign Out
+          </button>
+        </form>
+      </div>
+
+      {/* Insert rest of your NEHvigation page code here */}
+    </div>
+  );
+}
 
 const LIBRARIES: ("places")[] = ["places"];
 
