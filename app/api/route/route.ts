@@ -1,73 +1,97 @@
 import { NextResponse } from 'next/server';
 
-// Helper to map route step instructions / road names to LTA DataMall Zone IDs
-function detectLtaZoneIds(route: any): string[] {
-  const zones = new Set<string>();
-  const fullText = (route.summary || '') + ' ' + 
-    route.legs[0]?.steps?.map((s: any) => s.html_instructions || '').join(' ');
+// Zone and Gantry mapping table tailored to match erp-rates.json keys
+const ZONE_KEYWORD_MAP: Array<{
+  keywords: string[];
+  zoneId: string;
+  gantryIds: number[];
+}> = [
+  {
+    keywords: ['cte', 'central exp', 'central expressway', 'braddell'],
+    zoneId: 'CTE_SOUTHBOUND_BRADDELL',
+    gantryIds: [31, 33, 34],
+  },
+  {
+    keywords: ['cte northbound', 'after pie'],
+    zoneId: 'CTE_NORTHBOUND_PIE',
+    gantryIds: [35],
+  },
+  {
+    keywords: ['aye', 'ayer rajah', 'ayer rajah expressway', 'jurong town hall'],
+    zoneId: 'AYE_JURONG_TOWN_HALL',
+    gantryIds: [36],
+  },
+  {
+    keywords: ['kpe', 'kallang-paya lebar', 'kallang-paya lebar expressway', 'defu'],
+    zoneId: 'KPE_SOUTHBOUND_DEFU',
+    gantryIds: [71],
+  },
+  {
+    keywords: ['pie eastbound', 'bendemeer', 'kallang bahru'],
+    zoneId: 'PIE_EASTBOUND_KALLANG',
+    gantryIds: [90, 91],
+  },
+  {
+    keywords: ['pie westbound', 'eunos'],
+    zoneId: 'PIE_WESTBOUND_EUNOS',
+    gantryIds: [45],
+  },
+  {
+    keywords: ['bugis', 'marina centre', 'rochor', 'nicoll highway'],
+    zoneId: 'BUGIS_MARINA_CENTRE',
+    gantryIds: [1, 2, 9, 10, 11, 16, 17, 18, 23],
+  },
+  {
+    keywords: ['shenton', 'chinatown', 'cantonment', 'keppel', 'maxwell'],
+    zoneId: 'SHENTON_WAY_CHINATOWN',
+    gantryIds: [3, 5, 6, 7, 19, 20, 24, 25, 28, 29, 72],
+  },
+  {
+    keywords: ['orchard', 'somerset', 'scotts rd'],
+    zoneId: 'ORCHARD_CORDON',
+    gantryIds: [4, 12, 13, 14, 15, 21, 22, 26, 27],
+  },
+  {
+    keywords: ['fort canning', 'ymca', 'clemenceau', 'bras basah'],
+    zoneId: 'YMCA_FORT_CANNING',
+    gantryIds: [47, 49],
+  },
+  {
+    keywords: ['handy rd', 'handy road'],
+    zoneId: 'HANDY_ROAD',
+    gantryIds: [48],
+  },
+  {
+    keywords: ['new bridge rd', 'south bridge rd', 'fullerton', 'bayfront'],
+    zoneId: 'NEW_BRIDGE_SOUTH_BRIDGE_FULLERTON_BAYFRONT',
+    gantryIds: [60, 61, 62, 63, 64, 66, 69],
+  },
+];
 
-  const textUpper = fullText.toUpperCase();
+// Upgraded zone and gantry detection function matching erp-rates.json
+function detectLtaZoneIds(route: any): { zoneIds: string[]; gantryIds: number[] } {
+  const zoneSet = new Set<string>();
+  const gantrySet = new Set<number>();
 
-  // CTE (Central Expressway)
-  if (textUpper.includes('CTE') || textUpper.includes('CENTRAL EXP')) {
-    zones.add('CT1');
-    zones.add('CT2');
-  }
-  // PIE (Pan Island Expressway)
-  if (textUpper.includes('PIE') || textUpper.includes('PAN ISLAND')) {
-    zones.add('PE1');
-    zones.add('PE2');
-  }
-  // ECP (East Coast Parkway)
-  if (textUpper.includes('ECP') || textUpper.includes('EAST COAST')) {
-    zones.add('EC1');
-  }
-  // AYE (Ayer Rajah Expressway)
-  if (textUpper.includes('AYE') || textUpper.includes('AYER RAJAH')) {
-    zones.add('AY1');
-  }
-  // KPE (Kallang-Paya Lebar Expressway)
-  if (textUpper.includes('KPE') || textUpper.includes('KALLANG')) {
-    zones.add('KP1');
-  }
-  // MCE (Marina Coastal Expressway)
-  if (textUpper.includes('MCE') || textUpper.includes('MARINA COASTAL')) {
-    zones.add('MC1');
-    zones.add('MC2');
-  }
-  // BKE (Bukit Timah Expressway)
-  if (textUpper.includes('BKE') || textUpper.includes('BUKIT TIMAH EXP')) {
-    zones.add('BK1');
-  }
-  // SLE (Seletar Expressway)
-  if (textUpper.includes('SLE') || textUpper.includes('SELETAR EXP')) {
-    zones.add('SL1');
-  }
-  // TPE (Tampines Expressway)
-  if (textUpper.includes('TPE') || textUpper.includes('TAMPINES EXP')) {
-    zones.add('TP1');
-  }
-  // KJE (Kranji Expressway)
-  if (textUpper.includes('KJE') || textUpper.includes('KRANJI EXP')) {
-    zones.add('KJ1');
-  }
-  // Dunearn Road / Bukit Timah Arterials
-  if (textUpper.includes('DUNEARN') || textUpper.includes('BUKIT TIMAH RD')) {
-    zones.add('DR');
-  }
-  // CBD / Orchard Area Roads
-  if (
-    textUpper.includes('ORCHARD') || 
-    textUpper.includes('MAXWELL') || 
-    textUpper.includes('SHENTON') || 
-    textUpper.includes('BRAS BASAH') ||
-    textUpper.includes('SOMERSET')
-  ) {
-    zones.add('CBD');
-    zones.add('OC'); // Orchard Cordon
-  }
+  const fullText = (
+    (route.summary || '') +
+    ' ' +
+    route.legs[0]?.steps?.map((s: any) => s.html_instructions || '').join(' ')
+  ).toLowerCase();
 
-  return Array.from(zones);
+  ZONE_KEYWORD_MAP.forEach((mapping) => {
+    const isMatch = mapping.keywords.some((keyword) => fullText.includes(keyword));
+
+    if (isMatch) {
+      zoneSet.add(mapping.zoneId);
+      mapping.gantryIds.forEach((id) => gantrySet.add(id));
+    }
+  });
+
+  return {
+    zoneIds: Array.from(zoneSet),
+    gantryIds: Array.from(gantrySet),
+  };
 }
 
 // Calculates estimated traffic light / intersection encounters
@@ -82,24 +106,22 @@ function calculateIntersectionScore(leg: any): number {
 
     // 1. Maneuvers that almost always involve a traffic light / intersection
     if (
-      maneuver.includes('turn') || 
-      maneuver.includes('u-turn') || 
-      text.includes('turn left') || 
+      maneuver.includes('turn') ||
+      maneuver.includes('u-turn') ||
+      text.includes('turn left') ||
       text.includes('turn right') ||
       text.includes('u-turn') ||
       text.includes('at the traffic light') ||
       text.includes('junction')
     ) {
       score += 1;
-    } 
+    }
     // 2. Long straight segments on non-expressways often cross signalized junctions
     else if (!maneuver && step.distance?.value > 400 && !text.includes('expressway') && !text.includes('e/way')) {
-      // Add ~1 light for every 500m on major non-expressway arterial roads
       score += Math.floor(step.distance.value / 500);
     }
   });
 
-  // Ensure minimum score of 1 if steps exist
   return Math.max(1, score);
 }
 
@@ -126,7 +148,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Departure_time=now & traffic_model=best_guess for real traffic timings
+    // Request directions with alternatives and real traffic timings
     const googleMapsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&alternatives=true&departure_time=now&traffic_model=best_guess&key=${apiKey}`;
 
     const googleRes = await fetch(googleMapsUrl);
@@ -137,7 +159,7 @@ export async function POST(request: Request) {
     if (googleData.status !== 'OK' || !googleData.routes || googleData.routes.length === 0) {
       console.error("Google Directions Error Details:", googleData.error_message || googleData.status);
       return NextResponse.json(
-        { 
+        {
           error: `Google Maps API returned status: ${googleData.status}`,
           details: googleData.error_message || "No routes found between selected points"
         },
@@ -150,29 +172,24 @@ export async function POST(request: Request) {
       const leg = route.legs[0];
 
       // Prefer duration_in_traffic over baseline static duration
-      const durationSeconds = leg.duration_in_traffic 
-        ? leg.duration_in_traffic.value 
+      const durationSeconds = leg.duration_in_traffic
+        ? leg.duration_in_traffic.value
         : leg.duration.value;
 
       const durationMin = Math.round(durationSeconds / 60);
       const distanceNum = parseFloat((leg.distance.value / 1000).toFixed(1));
       const distanceKm = distanceNum.toFixed(1);
 
-      // Extract LTA Zone IDs from step descriptions
-      const zoneIds = detectLtaZoneIds(route);
+      // Extract ERP Zone IDs & Gantry IDs matching erp-rates.json
+      const { zoneIds, gantryIds } = detectLtaZoneIds(route);
 
       // Calculate the Intersection / Traffic Light Score
       const intersectionScore = calculateIntersectionScore(leg);
 
-      // 🟢 Option 2 ERP Avoidance Penalty:
-      // If the route passes through any ERP zone (zoneIds detected), apply a +15.0 penalty point score
+      // Apply +15.0 penalty points if the route passes through any detected ERP zone
       const erpPenalty = zoneIds.length > 0 ? 15.0 : 0.0;
 
-      // 🟢 Strategy A Composite Score Formula:
-      // - 1.0 pt per minute of travel time
-      // - 0.5 pts per traffic light / junction encounter
-      // - 0.2 pts per kilometer of distance
-      // - +15.0 pts PENALTY if the route passes through an ERP zone
+      // Composite Score: 1.0/min + 0.5/light + 0.2/km + ERP penalty
       const compositeScore = Number(
         (
           durationMin * 1.0 +
@@ -194,12 +211,14 @@ export async function POST(request: Request) {
         via: route.summary || cleanInstruction,
         durationMin,
         distanceKm,
-        zoneIds, // Passed to frontend for real LTA DataMall rate lookups
+        zoneIds, // Used by app/page.tsx to match erp-rates.json
+        gantryIds,
         intersectionScore,
-        erpPenalty, // 🟢 Included in response for transparency
-        compositeScore, // 🟢 Strategy A + ERP Penalty score
+        erpPenalty,
+        compositeScore,
         startAddress: leg.start_address,
         endAddress: leg.end_address,
+        overviewPolyline: route.overview_polyline?.points,
         waypoints: leg.steps.map((step: any) => ({
           latitude: step.end_location.lat,
           longitude: step.end_location.lng,
@@ -207,7 +226,7 @@ export async function POST(request: Request) {
       };
     });
 
-    // 🟢 Rank winner route by LOWEST composite score (Strategy A + Option 2)
+    // Rank routes by lowest composite score
     const sortedRoutes = [...formattedRoutes].sort((a, b) => a.compositeScore - b.compositeScore);
     const winnerRoute = sortedRoutes[0];
 
