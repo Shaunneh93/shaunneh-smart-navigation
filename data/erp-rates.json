@@ -1,0 +1,173 @@
+[
+  {
+    "zoneId": "BUGIS_MARINA_CENTRE",
+    "gantryIds": [1, 2, 9, 10, 11, 16, 17, 18, 23],
+    "location": "Bugis-Marina Centre (Refer to #1)",
+    "dayType": "Weekdays",
+    "startTime": "08:00",
+    "endTime": "09:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "SHENTON_WAY_CHINATOWN",
+    "gantryIds": [3, 5, 6, 7, 19, 20, 24, 25, 28, 29, 72],
+    "location": "Shenton Way-Chinatown (Refer to #2)",
+    "dayType": "Weekdays",
+    "startTime": "18:00",
+    "endTime": "19:00",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "ORCHARD_CORDON",
+    "gantryIds": [4, 12, 13, 14, 15, 21, 22, 26, 27],
+    "location": "Orchard Cordon (Refer to #3)",
+    "dayType": "Weekdays",
+    "startTime": "18:00",
+    "endTime": "19:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "YMCA_FORT_CANNING",
+    "gantryIds": [47, 49],
+    "location": "YMCA Gantry and Fort Canning Tunnel Gantry",
+    "dayType": "Weekdays",
+    "startTime": "18:00",
+    "endTime": "19:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "HANDY_ROAD",
+    "gantryIds": [48],
+    "location": "Handy Road Gantry",
+    "dayType": "Weekdays",
+    "startTime": "18:00",
+    "endTime": "19:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "NEW_BRIDGE_SOUTH_BRIDGE_FULLERTON_BAYFRONT",
+    "gantryIds": [60, 61, 62, 63, 64, 66, 69],
+    "location": "New Bridge Rd, South Bridge Rd, Fullerton Rd, Bayfront Ave",
+    "dayType": "Weekdays",
+    "startTime": "18:00",
+    "endTime": "19:00",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "AYE_JURONG_TOWN_HALL",
+    "gantryIds": [36],
+    "location": "AYE West of Jurong Town Hall",
+    "dayType": "Weekdays",
+    "startTime": "07:30",
+    "endTime": "08:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "AYE_JURONG_TOWN_HALL",
+    "gantryIds": [36],
+    "location": "AYE West of Jurong Town Hall",
+    "dayType": "Weekdays",
+    "startTime": "08:00",
+    "endTime": "09:00",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "CTE_SOUTHBOUND_BRADDELL",
+    "gantryIds": [31, 33, 34],
+    "location": "CTE Southbound between AMK Ave 1 & Braddell Rd",
+    "dayType": "Weekdays",
+    "startTime": "07:30",
+    "endTime": "08:00",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "CTE_SOUTHBOUND_BRADDELL",
+    "gantryIds": [31, 33, 34],
+    "location": "CTE Southbound between AMK Ave 1 & Braddell Rd",
+    "dayType": "Weekdays",
+    "startTime": "08:00",
+    "endTime": "09:00",
+    "baseRate": 4.00
+  },
+  {
+    "zoneId": "CTE_SOUTHBOUND_BRADDELL",
+    "gantryIds": [31, 33, 34],
+    "location": "CTE Southbound between AMK Ave 1 & Braddell Rd",
+    "dayType": "Weekdays",
+    "startTime": "09:00",
+    "endTime": "09:30",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "CTE_NORTHBOUND_PIE",
+    "gantryIds": [35],
+    "location": "CTE Northbound after PIE",
+    "dayType": "Weekdays",
+    "startTime": "17:30",
+    "endTime": "18:00",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "CTE_NORTHBOUND_PIE",
+    "gantryIds": [35],
+    "location": "CTE Northbound after PIE",
+    "dayType": "Weekdays",
+    "startTime": "18:00",
+    "endTime": "19:00",
+    "baseRate": 3.00
+  },
+  {
+    "zoneId": "KPE_SOUTHBOUND_DEFU",
+    "gantryIds": [71],
+    "location": "KPE Southbound after Defu Lane",
+    "dayType": "Weekdays",
+    "startTime": "07:30",
+    "endTime": "08:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "KPE_SOUTHBOUND_DEFU",
+    "gantryIds": [71],
+    "location": "KPE Southbound after Defu Lane",
+    "dayType": "Weekdays",
+    "startTime": "08:00",
+    "endTime": "09:00",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "PIE_EASTBOUND_KALLANG",
+    "gantryIds": [90, 91],
+    "location": "PIE Eastbound Slip Road into Bendemeer / Kallang Bahru",
+    "dayType": "Weekdays",
+    "startTime": "07:30",
+    "endTime": "08:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "PIE_EASTBOUND_KALLANG",
+    "gantryIds": [90, 91],
+    "location": "PIE Eastbound Slip Road into Bendemeer / Kallang Bahru",
+    "dayType": "Weekdays",
+    "startTime": "08:00",
+    "endTime": "09:00",
+    "baseRate": 2.00
+  },
+  {
+    "zoneId": "PIE_WESTBOUND_EUNOS",
+    "gantryIds": [45],
+    "location": "PIE Westbound before Eunos Link",
+    "dayType": "Weekdays",
+    "startTime": "07:30",
+    "endTime": "08:00",
+    "baseRate": 1.00
+  },
+  {
+    "zoneId": "PIE_WESTBOUND_EUNOS",
+    "gantryIds": [45],
+    "location": "PIE Westbound before Eunos Link",
+    "dayType": "Weekdays",
+    "startTime": "08:00",
+    "endTime": "09:00",
+    "baseRate": 2.00
+  }
+]

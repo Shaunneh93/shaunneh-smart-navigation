@@ -77,34 +77,45 @@ export default function Home() {
   }, []);
 
   // Compute live ERP fees per route based on current SG time & route ZoneIDs
-  const liveErpMap = useMemo(() => {
-    if (!currentTime || erpRates.length === 0 || routes.length === 0) return {};
+ // Inside liveErpMap calculation in app/page.tsx
+const liveErpMap = useMemo(() => {
+  if (!currentTime || erpRates.length === 0 || routes.length === 0) return {};
 
-    const resultMap: Record<string, number> = {};
+  const resultMap: Record<string, number> = {};
 
-    routes.forEach((route, idx) => {
-      const routeKey = route.id || `route-${idx}`;
-      const zoneIds: string[] = route.zoneIds || route.erpZones || [];
+  routes.forEach((route, idx) => {
+    const routeKey = route.id || `route-${idx}`;
+    
+    // Support both zone ID strings and individual numeric gantry IDs
+    const routeZones: string[] = route.zoneIds || route.erpZones || [];
+    const routeGantries: number[] = route.gantryIds || [];
 
-      let totalFee = 0;
-      zoneIds.forEach((zoneId) => {
-        const activeRate = erpRates.find((rate) => {
-          if (rate.ZoneID !== zoneId) return false;
-          const start = rate.StartTime.substring(0, 5);
-          const end = rate.EndTime.substring(0, 5);
-          return currentTime >= start && currentTime < end;
-        });
+    let totalFee = 0;
 
-        if (activeRate) {
-          totalFee += Number(activeRate.ChargeAmount) || 0;
-        }
+    routeZones.forEach((zoneId) => {
+      const activeRate = erpRates.find((rate: any) => {
+        // Match either zone string or gantry ID presence
+        const matchesZone = rate.ZoneID === zoneId || 
+          (Array.isArray(rate.GantryIDs) && rate.GantryIDs.some((g: number) => routeGantries.includes(g)));
+          
+        if (!matchesZone) return false;
+
+        const start = rate.StartTime;
+        const end = rate.EndTime;
+
+        return currentTime >= start && currentTime < end;
       });
 
-      resultMap[routeKey] = totalFee;
+      if (activeRate) {
+        totalFee += Number(activeRate.ChargeAmount) || 0;
+      }
     });
 
-    return resultMap;
-  }, [currentTime, erpRates, routes]);
+    resultMap[routeKey] = totalFee;
+  });
+
+  return resultMap;
+}, [currentTime, erpRates, routes]);
 
   const onOriginPlaceChanged = () => {
     if (originAutocompleteRef.current) {

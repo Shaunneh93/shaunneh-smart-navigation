@@ -1,39 +1,34 @@
 import { NextResponse } from 'next/server';
+import erpData from '@/data/erp-rates.json';
 
-export async function GET() {
-  const apiKey = process.env.LTA_DATAMALL_KEY;
+// LTA standard vehicle type multipliers
+const VEHICLE_MULTIPLIERS: Record<string, number> = {
+  'Motorcycles': 0.5,
+  'Passenger Cars': 1.0,
+  'Heavy Goods Vehicles': 1.5,
+  'Very Heavy Goods Vehicles': 2.0,
+};
 
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'LTA_DATAMALL_KEY environment variable is not set.' },
-      { status: 500 }
-    );
-  }
-
+export async function GET(request: Request) {
   try {
-    const res = await fetch('https://api.datamall.lta.gov.sg/ltaodataservice/ERPRates', {
-      headers: {
-        AccountKey: apiKey,
-        accept: 'application/json',
-      },
-      // Cache the response on the server for 1 hour to prevent spamming LTA
-      next: { revalidate: 3600 },
-    });
+    const { searchParams } = new URL(request.url);
+    const vehicleType = searchParams.get('vehicleType') || 'Passenger Cars';
+    const multiplier = VEHICLE_MULTIPLIERS[vehicleType] || 1.0;
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `LTA API responded with status ${res.status}` },
-        { status: res.status }
-      );
-    }
+    // Map base rates to match expected LTA structure in frontend
+    const formattedRates = erpData.map((item) => ({
+      ZoneID: item.zoneId,
+      GantryIDs: item.gantryIds,
+      Location: item.location,
+      DayType: item.dayType,
+      StartTime: item.startTime,
+      EndTime: item.endTime,
+      ChargeAmount: item.baseRate * multiplier,
+    }));
 
-    const data = await res.json();
-    return NextResponse.json(data);
+    return NextResponse.json({ value: formattedRates });
   } catch (error) {
-    console.error('Error fetching ERP rates from LTA:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch ERP data from LTA DataMall' },
-      { status: 500 }
-    );
+    console.error('Failed to load local ERP rates:', error);
+    return NextResponse.json({ value: [] }, { status: 500 });
   }
 }
