@@ -380,24 +380,33 @@ export default function Home() {
                   )}
                 </div>
 
-                <div style={{ color: '#f1f5f9', fontSize: '14px', lineHeight: '1.8' }}>
-                  <div>⏱️ <strong>Time:</strong> {route.durationMin !== undefined ? Number(route.durationMin).toFixed(0) : route.duration || 'N/A'} mins</div>
-                  <div>🛣️ <strong>Distance:</strong> {route.distanceKm !== undefined ? Number(route.distanceKm).toFixed(1) : route.distance || 'N/A'} km</div>
-                  
-                  <div>
-                    💰 <strong>ERP Fee:</strong>{' '}
-                    <span style={{ color: displayErp > 0 ? '#fbbf24' : '#34d399', fontWeight: 'bold' }}>
-                      ${Number(displayErp).toFixed(2)}
-                    </span>
-                  </div>
+<div style={{ color: '#f1f5f9', fontSize: '14px', lineHeight: '1.8' }}>
+  <div>⏱️ <strong>Time:</strong> {route.durationMin !== undefined ? Number(route.durationMin).toFixed(0) : route.duration || 'N/A'} mins</div>
+  <div>🛣️ <strong>Distance:</strong> {route.distanceKm !== undefined ? Number(route.distanceKm).toFixed(1) : route.distance || 'N/A'} km</div>
+  
+  <div>
+    💰 <strong>ERP Fee:</strong>{' '}
+    <span style={{ color: displayErp > 0 ? '#fbbf24' : '#34d399', fontWeight: 'bold' }}>
+      ${Number(displayErp).toFixed(2)}
+    </span>
+  </div>
 
-                  {route.intersectionScore !== undefined && (
-                    <div>🚦 <strong>Traffic Light Score:</strong> {route.intersectionScore}</div>
-                  )}
-                  {route.score !== undefined && (
-                    <div style={{ color: '#cbd5e1', fontSize: '12px', marginTop: '4px' }}>📊 <strong>Total Weighted Score:</strong> {Number(route.score).toFixed(1)}</div>
-                  )}
-                </div>
+  {/* 🟢 TRAFFIC LIGHT SCORE DISPLAY (Shows value if present, else N/A) */}
+  <div>
+    🚦 <strong>Traffic Light Score:</strong>{' '}
+    {(route.intersectionScore !== undefined && route.intersectionScore !== null)
+      ? route.intersectionScore
+      : (route.trafficLightScore !== undefined && route.trafficLightScore !== null)
+        ? route.trafficLightScore
+        : 'N/A'}
+  </div>
+
+  {route.score !== undefined && (
+    <div style={{ color: '#cbd5e1', fontSize: '12px', marginTop: '4px' }}>
+      📊 <strong>Total Weighted Score:</strong> {Number(route.score).toFixed(1)}
+    </div>
+  )}
+</div>
 
                 <button 
                   type="button"

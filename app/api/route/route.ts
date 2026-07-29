@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // Helper to map route step instructions / road names to LTA DataMall Zone IDs
+// Helper to map route step instructions / road names to LTA DataMall Zone IDs
 function detectLtaZoneIds(route: any): string[] {
   const zones = new Set<string>();
   const fullText = (route.summary || '') + ' ' + 
@@ -30,12 +31,77 @@ function detectLtaZoneIds(route: any): string[] {
   if (textUpper.includes('KPE') || textUpper.includes('KALLANG')) {
     zones.add('KP1');
   }
+  // MCE (Marina Coastal Expressway)
+  if (textUpper.includes('MCE') || textUpper.includes('MARINA COASTAL')) {
+    zones.add('MC1');
+    zones.add('MC2');
+  }
+  // BKE (Bukit Timah Expressway)
+  if (textUpper.includes('BKE') || textUpper.includes('BUKIT TIMAH EXP')) {
+    zones.add('BK1');
+  }
+  // SLE (Seletar Expressway)
+  if (textUpper.includes('SLE') || textUpper.includes('SELETAR EXP')) {
+    zones.add('SL1');
+  }
+  // TPE (Tampines Expressway)
+  if (textUpper.includes('TPE') || textUpper.includes('TAMPINES EXP')) {
+    zones.add('TP1');
+  }
+  // KJE (Kranji Expressway)
+  if (textUpper.includes('KJE') || textUpper.includes('KRANJI EXP')) {
+    zones.add('KJ1');
+  }
+  // Dunearn Road / Bukit Timah Arterials
+  if (textUpper.includes('DUNEARN') || textUpper.includes('BUKIT TIMAH RD')) {
+    zones.add('DR');
+  }
   // CBD / Orchard Area Roads
-  if (textUpper.includes('ORCHARD') || textUpper.includes('MAXWELL') || textUpper.includes('SHEENTON') || textUpper.includes('BRAS BASAH')) {
+  if (
+    textUpper.includes('ORCHARD') || 
+    textUpper.includes('MAXWELL') || 
+    textUpper.includes('SHENTON') || 
+    textUpper.includes('BRAS BASAH') ||
+    textUpper.includes('SOMERSET')
+  ) {
     zones.add('CBD');
+    zones.add('OC'); // Orchard Cordon
   }
 
   return Array.from(zones);
+}
+
+// 🟢 NEW HELPER: Calculates estimated traffic light / intersection encounters
+function calculateIntersectionScore(leg: any): number {
+  if (!leg?.steps || !Array.isArray(leg.steps)) return 0;
+
+  let score = 0;
+
+  leg.steps.forEach((step: any) => {
+    const maneuver = step.maneuver || '';
+    const text = (step.html_instructions || '').toLowerCase();
+
+    // 1. Maneuvers that almost always involve a traffic light / intersection
+    if (
+      maneuver.includes('turn') || 
+      maneuver.includes('u-turn') || 
+      text.includes('turn left') || 
+      text.includes('turn right') ||
+      text.includes('u-turn') ||
+      text.includes('at the traffic light') ||
+      text.includes('junction')
+    ) {
+      score += 1;
+    } 
+    // 2. Long straight segments on non-expressways often cross signalized junctions
+    else if (!maneuver && step.distance?.value > 400 && !text.includes('expressway') && !text.includes('e/way')) {
+      // Add ~1 light for every 500m on major non-expressway arterial roads
+      score += Math.floor(step.distance.value / 500);
+    }
+  });
+
+  // Ensure minimum score of 1 if steps exist
+  return Math.max(1, score);
 }
 
 export async function POST(request: Request) {
@@ -61,7 +127,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // FIX 1: Added departure_time=now & traffic_model=best_guess for REAL TRAFFIC TIMINGS
+    // Departure_time=now & traffic_model=best_guess for real traffic timings
     const googleMapsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&alternatives=true&departure_time=now&traffic_model=best_guess&key=${apiKey}`;
 
     const googleRes = await fetch(googleMapsUrl);
@@ -84,7 +150,7 @@ export async function POST(request: Request) {
     const formattedRoutes = googleData.routes.map((route: any, index: number) => {
       const leg = route.legs[0];
 
-      // FIX 2: Prefer duration_in_traffic over baseline static duration
+      // Prefer duration_in_traffic over baseline static duration
       const durationSeconds = leg.duration_in_traffic 
         ? leg.duration_in_traffic.value 
         : leg.duration.value;
@@ -95,11 +161,13 @@ export async function POST(request: Request) {
       // Extract LTA Zone IDs from step descriptions
       const zoneIds = detectLtaZoneIds(route);
 
+      // 🟢 Calculate the Intersection / Traffic Light Score
+      const intersectionScore = calculateIntersectionScore(leg);
+
       // Clean HTML instructions for summary label
       const cleanInstruction = leg.steps[0]?.html_instructions?.replace(/<[^>]*>?/gm, '') || 'Main Road';
       const summaryLabel = route.summary ? `Via ${route.summary}` : `Via ${cleanInstruction}`;
 
-      // FIX 3: Stable unique primitive string IDs to prevent selection reference bugs
       const uniqueId = `route-${index}-${route.summary ? route.summary.replace(/\s+/g, '-').toLowerCase() : 'opt'}`;
 
       return {
@@ -109,6 +177,7 @@ export async function POST(request: Request) {
         durationMin,
         distanceKm,
         zoneIds, // Passed to frontend for real LTA DataMall rate lookups
+        intersectionScore, // 🟢 NOW INCLUDED IN THE RESPONSE
         startAddress: leg.start_address,
         endAddress: leg.end_address,
         waypoints: leg.steps.map((step: any) => ({
