@@ -1,13 +1,23 @@
+// middleware.ts
 import { auth } from "@/auth";
+import { NextResponse } from "next/server";
 
-// Export the auth function directly as the Next.js middleware
-export default auth;
+export default auth((req) => {
+  const isLoggedIn = !!req.auth;
+  const isAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
 
-// The matcher dictates which routes require authentication
+  // 1. If user is authenticated or accessing an auth API route, allow request
+  if (isLoggedIn || isAuthRoute) {
+    return NextResponse.next();
+  }
+
+  // 2. If user is NOT authenticated, redirect to the Google Sign-In page
+  const signInUrl = new URL("/api/auth/signin", req.nextUrl.origin);
+  signInUrl.searchParams.set("callbackUrl", req.nextUrl.href);
+  return NextResponse.redirect(signInUrl);
+});
+
 export const config = {
-  // This Regex protects all routes EXCEPT:
-  // 1. Next.js static files (_next/static, _next/image)
-  // 2. The favicon
-  // 3. API routes (so your backend maps/auth routes don't get blocked)
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Apply middleware to all pages except static assets and Next.js internals
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
 };
