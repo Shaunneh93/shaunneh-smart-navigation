@@ -208,32 +208,17 @@ const launchGoogleMaps = (route: any) => {
 
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${orig.latitude},${orig.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=driving`;
 
-    // 1. If route has a string representation for 'via' (e.g. "CTE" or "PIE")
-    if (route?.via && typeof route.via === 'string') {
-      mapsUrl += `&via=${encodeURIComponent(route.via)}`;
-    } 
-    // 2. If waypoints exist, sample ONLY 1 to 2 key intermediate points instead of all dense points
-    else if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
-      const total = route.waypoints.length;
-      
-      // Filter out points that are too close to start or end, or sample 1-2 middle points
-      let sampledWaypoints: { latitude: number; longitude: number }[] = [];
-      
-      if (total <= 2) {
-        sampledWaypoints = route.waypoints;
-      } else {
-        // Take a point at ~33% and ~66% along the path to force route choice without clogging
-        const mid1 = route.waypoints[Math.floor(total * 0.33)];
-        const mid2 = route.waypoints[Math.floor(total * 0.66)];
-        sampledWaypoints = [mid1, mid2].filter(Boolean);
+    // 1. If the route object provides waypoints or polyline points, pick a midpoint to force this exact path
+    if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
+      const midPoint = route.waypoints[Math.floor(route.waypoints.length / 2)];
+      if (midPoint?.latitude && midPoint?.longitude) {
+        // "via:" forces Google Maps to route through this point without making it a hard stopover
+        mapsUrl += `&waypoints=${encodeURIComponent(`via:${midPoint.latitude},${midPoint.longitude}`)}`;
       }
-
-      // Prefix coordinates with "via:" so Google Maps treats them as pass-throughs rather than stop pins
-      const waypointsString = sampledWaypoints
-        .map((wp) => `via:${wp.latitude},${wp.longitude}`)
-        .join('|');
-
-      mapsUrl += `&waypoints=${encodeURIComponent(waypointsString)}`;
+    } 
+    // 2. Fallback to route via/summary string if no coordinates are available
+    else if (route?.via && typeof route.via === 'string') {
+      mapsUrl += `&via=${encodeURIComponent(route.via)}`;
     }
 
     window.open(mapsUrl, '_blank');
@@ -244,7 +229,7 @@ const launchGoogleMaps = (route: any) => {
 
   return (
     <main style={{ padding: '30px 20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto', color: '#ffffff' }}>
-      <h1 style={{ textAlign: 'center', fontSize: '24px', marginBottom: '20px' }}>Shaunneh's Smart Navigation</h1>
+      <h1 style={{ textAlign: 'center', fontSize: '24px', marginBottom: '20px' }}>NEHvigation</h1>
 
       {/* START LOCATION SEARCH */}
       <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #334155' }}>
