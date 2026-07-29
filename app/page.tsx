@@ -287,21 +287,26 @@ const launchGoogleMaps = (route: any) => {
         </Autocomplete>
       </div>
 
-      {/* CALCULATE BUTTON */}
-      <button 
+{/* CALCULATE BUTTON */}
+<button 
   onClick={handleSearch}
   disabled={loading || !destCoords.lat || !originCoords.lat}
   style={{
-    // ... your existing styles
-    opacity: (!destCoords.lat || !originCoords.lat) ? 0.6 : 1,
+    padding: '14px 20px',
+    fontSize: '16px',
     cursor: (loading || !destCoords.lat || !originCoords.lat) ? 'not-allowed' : 'pointer',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: loading ? '#475569' : '#0070f3',
+    color: '#ffffff',
+    fontWeight: 'bold',
+    width: '100%',
+    boxShadow: '0 4px 12px rgba(0, 112, 243, 0.3)',
+    opacity: (!destCoords.lat || !originCoords.lat) ? 0.6 : 1
   }}
 >
   {loading ? 'Evaluating All Routes...' : 'Calculate Routes'}
 </button>
-        {loading ? 'Evaluating All Routes...' : 'Calculate Routes'}
-      </button>
-
       {/* ROUTE RESULTS LIST */}
       {routes.length > 0 && (
         <div style={{ marginTop: '24px' }}>
