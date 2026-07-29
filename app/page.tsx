@@ -22,19 +22,14 @@ export default function Home() {
     libraries: LIBRARIES,
   });
 
-// ✅ AFTER (GPS by default for start, blank for destination)
-const [originText, setOriginText] = useState('📍 Fetching Location...');
-const [originCoords, setOriginCoords] = useState<{ lat: string; lng: string }>({ lat: '', lng: '' });
-const originAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  // 1. Google Maps State - Starts Completely BLANK
+  const [originText, setOriginText] = useState('');
+  const [originCoords, setOriginCoords] = useState<{ lat: string; lng: string }>({ lat: '', lng: '' });
+  const originAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
-const [destText, setDestText] = useState('');
-const [destCoords, setDestCoords] = useState<{ lat: string; lng: string }>({ lat: '', lng: '' });
-const destAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-
-// Automatically trigger GPS on page mount
-useEffect(() => {
-  useCurrentLocation();
-}, []);
+  const [destText, setDestText] = useState('');
+  const [destCoords, setDestCoords] = useState<{ lat: string; lng: string }>({ lat: '', lng: '' });
+  const destAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   // Route State
   const [routes, setRoutes] = useState<any[]>([]);
@@ -137,8 +132,13 @@ useEffect(() => {
     }
   };
 
+  // Called ONLY when clicking "Use GPS" button
   const useCurrentLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    setOriginText('📍 Fetching GPS location...');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setOriginCoords({
@@ -147,12 +147,21 @@ useEffect(() => {
         });
         setOriginText('📍 My Current Location');
       },
-      (error) => console.error("GPS Error:", error),
+      (error) => {
+        console.error("GPS Error:", error);
+        alert("Unable to fetch your location. Please check browser permissions.");
+        setOriginText('');
+      },
       { enableHighAccuracy: true }
     );
   };
 
   const handleSearch = async () => {
+    if (!originCoords.lat || !destCoords.lat) {
+      alert('Please select both a valid start location and destination.');
+      return;
+    }
+
     setLoading(true);
     try {
       const departureTime = new Date().toISOString();
@@ -184,7 +193,6 @@ useEffect(() => {
 
       topWinner = data.winner || data.optimal || allRoutes[0] || null;
 
-      // Assign primitive IDs to routes if missing
       allRoutes = allRoutes.map((r, i) => ({
         ...r,
         id: r.id || `route-${i}`,
@@ -207,35 +215,31 @@ useEffect(() => {
     }
   };
 
-const launchGoogleMaps = (route: any) => {
+  const launchGoogleMaps = (route: any) => {
     const dest = route?.destinationCoords || { latitude: destCoords.lat, longitude: destCoords.lng };
     const orig = route?.originCoords || { latitude: originCoords.lat, longitude: originCoords.lng };
 
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${orig.latitude},${orig.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=driving`;
 
-    // 1. If route has intermediate waypoints, pick 1-2 points along the path
     if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
       const total = route.waypoints.length;
-      
-      // Sample a middle point to force Google Maps along this specific route choice
       const midPoint = route.waypoints[Math.floor(total / 2)];
       
       if (midPoint?.latitude && midPoint?.longitude) {
-        // Pass plain lat,lng (DO NOT prepend 'via:' here)
         const waypointsString = `${midPoint.latitude},${midPoint.longitude}`;
         mapsUrl += `&waypoints=${encodeURIComponent(waypointsString)}`;
       }
-    } 
-    // 2. Fallback if route provides a summary string (e.g. 'PIE' or 'CTE')
-    else if (route?.via && typeof route.via === 'string') {
+    } else if (route?.via && typeof route.via === 'string') {
       mapsUrl += `&via=${encodeURIComponent(route.via)}`;
     }
 
     window.open(mapsUrl, '_blank');
   };
 
-  if (loadError) return <div style={{ color: 'red', padding: '20px' }}>Error loading Google Maps API.</div>;
+  if (loadError) return <div style={{ color: 'red', padding: '20px' }}>Error loading Google Maps API. Check API Restrictions in Console.</div>;
   if (!isLoaded) return <div style={{ color: '#fff', padding: '20px', textAlign: 'center' }}>Loading Google Maps...</div>;
+
+  const isFormValid = Boolean(originCoords.lat && destCoords.lat);
 
   return (
     <main style={{ padding: '30px 20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: '0 auto', color: '#ffffff' }}>
@@ -246,6 +250,7 @@ const launchGoogleMaps = (route: any) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <label style={{ fontSize: '14px', fontWeight: 'bold', color: '#38bdf8' }}>🟢 Start Location</label>
           <button 
+            type="button"
             onClick={useCurrentLocation}
             style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
           >
@@ -260,9 +265,13 @@ const launchGoogleMaps = (route: any) => {
         >
           <input 
             type="text" 
-            placeholder="Search Google Maps address..." 
+            placeholder="Type start address or click 'Use GPS'..." 
             value={originText} 
-            onChange={(e) => setOriginText(e.target.value)}
+            onChange={(e) => {
+              setOriginText(e.target.value);
+              // Reset stored coords if user types manually so they pick a valid place
+              setOriginCoords({ lat: '', lng: '' });
+            }}
             style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', boxSizing: 'border-box' }}
           />
         </Autocomplete>
@@ -279,34 +288,39 @@ const launchGoogleMaps = (route: any) => {
         >
           <input 
             type="text" 
-            placeholder="Search Google Maps address..." 
+            placeholder="Search destination address..." 
             value={destText} 
-            onChange={(e) => setDestText(e.target.value)}
+            onChange={(e) => {
+              setDestText(e.target.value);
+              setDestCoords({ lat: '', lng: '' });
+            }}
             style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', boxSizing: 'border-box' }}
           />
         </Autocomplete>
       </div>
 
-{/* CALCULATE BUTTON */}
-<button 
-  onClick={handleSearch}
-  disabled={loading || !destCoords.lat || !originCoords.lat}
-  style={{
-    padding: '14px 20px',
-    fontSize: '16px',
-    cursor: (loading || !destCoords.lat || !originCoords.lat) ? 'not-allowed' : 'pointer',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: loading ? '#475569' : '#0070f3',
-    color: '#ffffff',
-    fontWeight: 'bold',
-    width: '100%',
-    boxShadow: '0 4px 12px rgba(0, 112, 243, 0.3)',
-    opacity: (!destCoords.lat || !originCoords.lat) ? 0.6 : 1
-  }}
->
-  {loading ? 'Evaluating All Routes...' : 'Calculate Routes'}
-</button>
+      {/* CALCULATE BUTTON */}
+      <button 
+        type="button"
+        onClick={handleSearch}
+        disabled={loading || !isFormValid}
+        style={{
+          padding: '14px 20px',
+          fontSize: '16px',
+          cursor: (loading || !isFormValid) ? 'not-allowed' : 'pointer',
+          borderRadius: '8px',
+          border: 'none',
+          backgroundColor: (loading || !isFormValid) ? '#475569' : '#0070f3',
+          color: '#ffffff',
+          fontWeight: 'bold',
+          width: '100%',
+          boxShadow: '0 4px 12px rgba(0, 112, 243, 0.3)',
+          opacity: isFormValid ? 1 : 0.6
+        }}
+      >
+        {loading ? 'Evaluating All Routes...' : 'Calculate Routes'}
+      </button>
+
       {/* ROUTE RESULTS LIST */}
       {routes.length > 0 && (
         <div style={{ marginTop: '24px' }}>
@@ -326,7 +340,6 @@ const launchGoogleMaps = (route: any) => {
             const isWinner = winnerRouteId ? routeKey === winnerRouteId : idx === 0;
             const isSelected = selectedRouteId === routeKey;
 
-            // Live ERP figure (or fallback to backend calculation)
             const liveErpCost = liveErpMap[routeKey];
             const displayErp = liveErpCost !== undefined 
               ? liveErpCost 
@@ -371,7 +384,6 @@ const launchGoogleMaps = (route: any) => {
                   <div>⏱️ <strong>Time:</strong> {route.durationMin !== undefined ? Number(route.durationMin).toFixed(0) : route.duration || 'N/A'} mins</div>
                   <div>🛣️ <strong>Distance:</strong> {route.distanceKm !== undefined ? Number(route.distanceKm).toFixed(1) : route.distance || 'N/A'} km</div>
                   
-                  {/* LIVE LTA ERP DISPLAY */}
                   <div>
                     💰 <strong>ERP Fee:</strong>{' '}
                     <span style={{ color: displayErp > 0 ? '#fbbf24' : '#34d399', fontWeight: 'bold' }}>
@@ -388,6 +400,7 @@ const launchGoogleMaps = (route: any) => {
                 </div>
 
                 <button 
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedRouteId(routeKey);
