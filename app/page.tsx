@@ -346,17 +346,22 @@ const liveErpMap = useMemo(() => {
             )}
           </div>
           
-          {routes.map((route, idx) => {
-            const routeKey = route.id || `route-${idx}`;
-            const isWinner = winnerRouteId ? routeKey === winnerRouteId : idx === 0;
-            const isSelected = selectedRouteId === routeKey;
+// ✅ UPDATED CODE WITH DYNAMIC PENALTY CALCULATION
+{routes.map((route, idx) => {
+  const routeKey = route.id || `route-${idx}`;
+  const isWinner = winnerRouteId ? routeKey === winnerRouteId : idx === 0;
+  const isSelected = selectedRouteId === routeKey;
 
-            const liveErpCost = liveErpMap[routeKey];
-            const displayErp = liveErpCost !== undefined 
-              ? liveErpCost 
-              : route.erpTotalCost ?? route.erpFee ?? 0;
+  const liveErpCost = liveErpMap[routeKey];
+  const displayErp = liveErpCost !== undefined 
+    ? liveErpCost 
+    : route.erpTotalCost ?? route.erpFee ?? 0;
 
-            return (
+  // 🔴 1 Dollar of ERP = 5 Penalty Points
+  // Uses backend erpPenalty if provided, otherwise calculates dynamically from live displayErp
+  const calculatedErpPenalty = route.erpPenalty ?? (displayErp * 5.0);
+
+  return (
               <div 
                 key={routeKey}
                 onClick={() => setSelectedRouteId(routeKey)}
@@ -412,12 +417,12 @@ const liveErpMap = useMemo(() => {
         : 'N/A'}
   </div>
 
-  {/* ⚠️ ERP Penalty Indicator */}
+{/* ⚠️ ERP Penalty Indicator */}
 <div>
   ⚠️ <strong>ERP Penalty:</strong>{' '}
-  {(route.erpPenalty && route.erpPenalty > 0) ? (
+  {calculatedErpPenalty > 0 ? (
     <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>
-      +{route.erpPenalty} pts (Avoided ERP Preference)
+      +{calculatedErpPenalty.toFixed(1)} pts (Avoided ERP Preference)
     </span>
   ) : (
     <span style={{ color: '#10b981', fontWeight: 'bold' }}>
