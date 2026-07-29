@@ -81,33 +81,59 @@ export default function Home() {
 const liveErpMap = useMemo(() => {
   if (!currentTime || erpRates.length === 0 || routes.length === 0) return {};
 
+  // 1. Determine today's SG DayType
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+  let currentDayType = 'Weekdays';
+  if (dayOfWeek === 6) currentDayType = 'Saturday';
+  if (dayOfWeek === 0) currentDayType = 'Sunday';
+
+  // Ensure currentTime is strictly HH:MM (5 chars)
+  const formattedCurrentTime = currentTime.slice(0, 5);
+
   const resultMap: Record<string, number> = {};
 
   routes.forEach((route, idx) => {
     const routeKey = route.id || `route-${idx}`;
-    
-    // Support both zone ID strings and individual numeric gantry IDs
-    const routeZones: string[] = route.zoneIds || route.erpZones || [];
-    const routeGantries: number[] = route.gantryIds || [];
+
+    // Grab zone strings or gantry IDs returned from your route API
+    const routeZones: (string | number)[] = [
+      ...(route.zoneIds || route.erpZones || []),
+      ...(route.gantryIds || []),
+      ...(route.gantryList || []),
+    ].map((z) => String(z).trim().toUpperCase());
 
     let totalFee = 0;
 
-    routeZones.forEach((zoneId) => {
+    routeZones.forEach((routeZone) => {
       const activeRate = erpRates.find((rate: any) => {
-        // Match either zone string or gantry ID presence
-        const matchesZone = rate.ZoneID === zoneId || 
-          (Array.isArray(rate.GantryIDs) && rate.GantryIDs.some((g: number) => routeGantries.includes(g)));
-          
+        // Safe string comparisons for ZoneID / GantryID
+        const rateZone = String(rate.ZoneID || rate.ZoneId || rate.GantryID || '').trim().toUpperCase();
+        
+        // Check if GantryIDs array exists
+        const matchesGantryArray = Array.isArray(rate.GantryIDs) && 
+          rate.GantryIDs.some((g: any) => String(g).trim().toUpperCase() === routeZone);
+
+        const matchesZone = rateZone === routeZone || matchesGantryArray;
         if (!matchesZone) return false;
 
-        const start = rate.StartTime;
-        const end = rate.EndTime;
+        // Check DayType if present (LTA uses 'Weekdays', 'Saturday', etc.)
+        if (rate.DayType && rate.DayType !== currentDayType && rate.DayType !== 'Everyday') {
+          return false;
+        }
 
-        return currentTime >= start && currentTime < end;
+        // Standardize StartTime & EndTime to HH:MM
+        const start = String(rate.StartTime || '').slice(0, 5);
+        const end = String(rate.EndTime || '').slice(0, 5);
+
+        if (!start || !end) return false;
+
+        // Time window match
+        return formattedCurrentTime >= start && formattedCurrentTime < end;
       });
 
       if (activeRate) {
-        totalFee += Number(activeRate.ChargeAmount) || 0;
+        totalFee += Number(activeRate.ChargeAmount || activeRate.Charge || 0);
       }
     });
 
@@ -346,7 +372,7 @@ const liveErpMap = useMemo(() => {
             )}
           </div>
           
-// ✅ UPDATED CODE WITH DYNAMIC PENALTY CALCULATION
+
 {routes.map((route, idx) => {
   const routeKey = route.id || `route-${idx}`;
   const isWinner = winnerRouteId ? routeKey === winnerRouteId : idx === 0;
