@@ -202,19 +202,38 @@ export default function Home() {
     }
   };
 
-  const launchGoogleMaps = (route: any) => {
+const launchGoogleMaps = (route: any) => {
     const dest = route?.destinationCoords || { latitude: destCoords.lat, longitude: destCoords.lng };
     const orig = route?.originCoords || { latitude: originCoords.lat, longitude: originCoords.lng };
 
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${orig.latitude},${orig.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=driving`;
 
-    if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
-      const waypointsString = route.waypoints
-        .map((wp: { latitude: number; longitude: number }) => `${wp.latitude},${wp.longitude}`)
-        .join('|');
-      mapsUrl += `&waypoints=${encodeURIComponent(waypointsString)}`;
-    } else if (route?.via) {
+    // 1. If route has a string representation for 'via' (e.g. "CTE" or "PIE")
+    if (route?.via && typeof route.via === 'string') {
       mapsUrl += `&via=${encodeURIComponent(route.via)}`;
+    } 
+    // 2. If waypoints exist, sample ONLY 1 to 2 key intermediate points instead of all dense points
+    else if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
+      const total = route.waypoints.length;
+      
+      // Filter out points that are too close to start or end, or sample 1-2 middle points
+      let sampledWaypoints: { latitude: number; longitude: number }[] = [];
+      
+      if (total <= 2) {
+        sampledWaypoints = route.waypoints;
+      } else {
+        // Take a point at ~33% and ~66% along the path to force route choice without clogging
+        const mid1 = route.waypoints[Math.floor(total * 0.33)];
+        const mid2 = route.waypoints[Math.floor(total * 0.66)];
+        sampledWaypoints = [mid1, mid2].filter(Boolean);
+      }
+
+      // Prefix coordinates with "via:" so Google Maps treats them as pass-throughs rather than stop pins
+      const waypointsString = sampledWaypoints
+        .map((wp) => `via:${wp.latitude},${wp.longitude}`)
+        .join('|');
+
+      mapsUrl += `&waypoints=${encodeURIComponent(waypointsString)}`;
     }
 
     window.open(mapsUrl, '_blank');
