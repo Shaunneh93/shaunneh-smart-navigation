@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
 // Helper to map route step instructions / road names to LTA DataMall Zone IDs
-// Helper to map route step instructions / road names to LTA DataMall Zone IDs
 function detectLtaZoneIds(route: any): string[] {
   const zones = new Set<string>();
   const fullText = (route.summary || '') + ' ' + 
@@ -71,7 +70,7 @@ function detectLtaZoneIds(route: any): string[] {
   return Array.from(zones);
 }
 
-// 🟢 NEW HELPER: Calculates estimated traffic light / intersection encounters
+// Calculates estimated traffic light / intersection encounters
 function calculateIntersectionScore(leg: any): number {
   if (!leg?.steps || !Array.isArray(leg.steps)) return 0;
 
@@ -156,13 +155,32 @@ export async function POST(request: Request) {
         : leg.duration.value;
 
       const durationMin = Math.round(durationSeconds / 60);
-      const distanceKm = (leg.distance.value / 1000).toFixed(1);
+      const distanceNum = parseFloat((leg.distance.value / 1000).toFixed(1));
+      const distanceKm = distanceNum.toFixed(1);
 
       // Extract LTA Zone IDs from step descriptions
       const zoneIds = detectLtaZoneIds(route);
 
-      // 🟢 Calculate the Intersection / Traffic Light Score
+      // Calculate the Intersection / Traffic Light Score
       const intersectionScore = calculateIntersectionScore(leg);
+
+      // 🟢 Option 2 ERP Avoidance Penalty:
+      // If the route passes through any ERP zone (zoneIds detected), apply a +15.0 penalty point score
+      const erpPenalty = zoneIds.length > 0 ? 15.0 : 0.0;
+
+      // 🟢 Strategy A Composite Score Formula:
+      // - 1.0 pt per minute of travel time
+      // - 0.5 pts per traffic light / junction encounter
+      // - 0.2 pts per kilometer of distance
+      // - +15.0 pts PENALTY if the route passes through an ERP zone
+      const compositeScore = Number(
+        (
+          durationMin * 1.0 +
+          intersectionScore * 0.5 +
+          distanceNum * 0.2 +
+          erpPenalty
+        ).toFixed(1)
+      );
 
       // Clean HTML instructions for summary label
       const cleanInstruction = leg.steps[0]?.html_instructions?.replace(/<[^>]*>?/gm, '') || 'Main Road';
@@ -177,7 +195,9 @@ export async function POST(request: Request) {
         durationMin,
         distanceKm,
         zoneIds, // Passed to frontend for real LTA DataMall rate lookups
-        intersectionScore, // 🟢 NOW INCLUDED IN THE RESPONSE
+        intersectionScore,
+        erpPenalty, // 🟢 Included in response for transparency
+        compositeScore, // 🟢 Strategy A + ERP Penalty score
         startAddress: leg.start_address,
         endAddress: leg.end_address,
         waypoints: leg.steps.map((step: any) => ({
@@ -187,14 +207,14 @@ export async function POST(request: Request) {
       };
     });
 
-    // Rank winner route by fastest travel time
-    const sortedRoutes = [...formattedRoutes].sort((a, b) => a.durationMin - b.durationMin);
+    // 🟢 Rank winner route by LOWEST composite score (Strategy A + Option 2)
+    const sortedRoutes = [...formattedRoutes].sort((a, b) => a.compositeScore - b.compositeScore);
     const winnerRoute = sortedRoutes[0];
 
     return NextResponse.json({
       winner: winnerRoute,
-      allRoutes: formattedRoutes,
-      routes: formattedRoutes
+      allRoutes: sortedRoutes,
+      routes: sortedRoutes
     });
 
   } catch (err: any) {

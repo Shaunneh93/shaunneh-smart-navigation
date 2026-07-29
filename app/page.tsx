@@ -391,7 +391,7 @@ export default function Home() {
     </span>
   </div>
 
-  {/* 🟢 TRAFFIC LIGHT SCORE DISPLAY (Shows value if present, else N/A) */}
+{/* 🚦 Traffic Light Score */}
   <div>
     🚦 <strong>Traffic Light Score:</strong>{' '}
     {(route.intersectionScore !== undefined && route.intersectionScore !== null)
@@ -401,11 +401,29 @@ export default function Home() {
         : 'N/A'}
   </div>
 
+  {/* ⚠️ ERP Penalty Indicator */}
+  <div>
+    ⚠️ <strong>ERP Penalty:</strong>{' '}
+    {(route.erpPenalty && route.erpPenalty > 0) ? (
+      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>+15.0 pts (ERP Avoided Preference)</span>
+    ) : (
+      <span style={{ color: '#10b981', fontWeight: 'bold' }}>None ($0 Toll)</span>
+    )}
+  </div>
+
+  {/* 📊 Final Composite Score (Option 2) */}
+  {(route.compositeScore !== undefined || route.score !== undefined) && (
+    <div style={{ color: '#38bdf8', fontSize: '13px', marginTop: '6px', fontWeight: 'bold', borderTop: '1px solid #334155', paddingTop: '6px' }}>
+      📊 <strong>Composite Score:</strong> {Number(route.compositeScore ?? route.score).toFixed(1)} pts
+    </div>
+  )}
+
   {route.score !== undefined && (
     <div style={{ color: '#cbd5e1', fontSize: '12px', marginTop: '4px' }}>
       📊 <strong>Total Weighted Score:</strong> {Number(route.score).toFixed(1)}
     </div>
   )}
+  
 </div>
 
                 <button 
