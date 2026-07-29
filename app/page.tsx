@@ -22,14 +22,19 @@ export default function Home() {
     libraries: LIBRARIES,
   });
 
-  // Google Maps State
-  const [originText, setOriginText] = useState('268 Toa Payoh E, Singapore');
-  const [originCoords, setOriginCoords] = useState<{ lat: string; lng: string }>({ lat: '1.3343', lng: '103.8568' });
-  const originAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+// ✅ AFTER (GPS by default for start, blank for destination)
+const [originText, setOriginText] = useState('📍 Fetching Location...');
+const [originCoords, setOriginCoords] = useState<{ lat: string; lng: string }>({ lat: '', lng: '' });
+const originAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
-  const [destText, setDestText] = useState('45 Maxwell Rd, Singapore');
-  const [destCoords, setDestCoords] = useState<{ lat: string; lng: string }>({ lat: '1.2797', lng: '103.8458' });
-  const destAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+const [destText, setDestText] = useState('');
+const [destCoords, setDestCoords] = useState<{ lat: string; lng: string }>({ lat: '', lng: '' });
+const destAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+// Automatically trigger GPS on page mount
+useEffect(() => {
+  useCurrentLocation();
+}, []);
 
   // Route State
   const [routes, setRoutes] = useState<any[]>([]);
@@ -208,15 +213,20 @@ const launchGoogleMaps = (route: any) => {
 
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${orig.latitude},${orig.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=driving`;
 
-    // 1. If the route object provides waypoints or polyline points, pick a midpoint to force this exact path
+    // 1. If route has intermediate waypoints, pick 1-2 points along the path
     if (route?.waypoints && Array.isArray(route.waypoints) && route.waypoints.length > 0) {
-      const midPoint = route.waypoints[Math.floor(route.waypoints.length / 2)];
+      const total = route.waypoints.length;
+      
+      // Sample a middle point to force Google Maps along this specific route choice
+      const midPoint = route.waypoints[Math.floor(total / 2)];
+      
       if (midPoint?.latitude && midPoint?.longitude) {
-        // "via:" forces Google Maps to route through this point without making it a hard stopover
-        mapsUrl += `&waypoints=${encodeURIComponent(`via:${midPoint.latitude},${midPoint.longitude}`)}`;
+        // Pass plain lat,lng (DO NOT prepend 'via:' here)
+        const waypointsString = `${midPoint.latitude},${midPoint.longitude}`;
+        mapsUrl += `&waypoints=${encodeURIComponent(waypointsString)}`;
       }
     } 
-    // 2. Fallback to route via/summary string if no coordinates are available
+    // 2. Fallback if route provides a summary string (e.g. 'PIE' or 'CTE')
     else if (route?.via && typeof route.via === 'string') {
       mapsUrl += `&via=${encodeURIComponent(route.via)}`;
     }
@@ -279,21 +289,16 @@ const launchGoogleMaps = (route: any) => {
 
       {/* CALCULATE BUTTON */}
       <button 
-        onClick={handleSearch}
-        disabled={loading}
-        style={{
-          padding: '14px 20px',
-          fontSize: '16px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          borderRadius: '8px',
-          border: 'none',
-          backgroundColor: loading ? '#475569' : '#0070f3',
-          color: '#ffffff',
-          fontWeight: 'bold',
-          width: '100%',
-          boxShadow: '0 4px 12px rgba(0, 112, 243, 0.3)'
-        }}
-      >
+  onClick={handleSearch}
+  disabled={loading || !destCoords.lat || !originCoords.lat}
+  style={{
+    // ... your existing styles
+    opacity: (!destCoords.lat || !originCoords.lat) ? 0.6 : 1,
+    cursor: (loading || !destCoords.lat || !originCoords.lat) ? 'not-allowed' : 'pointer',
+  }}
+>
+  {loading ? 'Evaluating All Routes...' : 'Calculate Routes'}
+</button>
         {loading ? 'Evaluating All Routes...' : 'Calculate Routes'}
       </button>
 
