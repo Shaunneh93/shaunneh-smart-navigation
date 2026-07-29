@@ -133,7 +133,7 @@ const liveErpMap = useMemo(() => {
       });
 
       if (activeRate) {
-        totalFee += Number(activeRate.ChargeAmount || activeRate.Charge || 0);
+        totalFee += Number(activeRate.ChargeAmount || (activeRate as any).Charge || 0);
       }
     });
 
