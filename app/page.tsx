@@ -402,16 +402,3 @@ export default function Home() {
     </main>
   );
 }
-// ✅ FIX: Replace line 405 with valid fetch code
-const res = await fetch('/api/route', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    origin: { latitude: parseFloat(originCoords.lat), longitude: parseFloat(originCoords.lng) },
-    destination: { latitude: parseFloat(destCoords.lat), longitude: parseFloat(destCoords.lng) },
-    departureTime: new Date().toISOString()
-  })
-});
-
-const data = await res.json();
-console.log('1. All Routes Received:', data.allRoutes || data.routes || data);
