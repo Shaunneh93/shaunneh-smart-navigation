@@ -402,3 +402,10 @@ export default function Home() {
     </main>
   );
 }
+const res = await fetch('/api/route', { ... });
+const data = await res.json();
+
+// DEBUG LOGS — Check these in your browser console (F12 -> Console)
+console.log('1. All Routes Received:', data.allRoutes || data.routes || data);
+console.log('2. Check Route IDs:', (data.allRoutes || data.routes || []).map((r: any) => r.id));
+console.log('3. Check ERP Zone IDs:', (data.allRoutes || data.routes || []).map((r: any) => r.zoneIds || r.erpZones));
